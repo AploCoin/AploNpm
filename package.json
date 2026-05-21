@@ -1,0 +1,63 @@
+{
+  "name": "@aplocoin/aplonpm",
+  "version": "0.1.0",
+  "description": "TypeScript library for AploCoin blockchain interaction - mining, staking, and wallet operations",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "pnpm run typecheck && pnpm run build && pnpm test"
+  },
+  "keywords": [
+    "aplocoin",
+    "blockchain",
+    "mining",
+    "staking",
+    "web3",
+    "cryptocurrency"
+  ],
+  "author": "AploCoin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AploCoin/AploNpm.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "eslint": "^9.20.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "web3": "^4.16.0"
+  }
+}
