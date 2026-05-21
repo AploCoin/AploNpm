@@ -5,6 +5,7 @@
 
 import { HttpProvider } from './provider.js';
 import { AploClient } from './client.js';
+import { AploStaking } from './staking.js';
 
 export const VERSION = '0.1.0';
 
@@ -51,6 +52,9 @@ export { HttpProvider } from './provider.js';
 export { AploClient } from './client.js';
 export type { BlockTag } from './client.js';
 
+// Export staking
+export { AploStaking, STAKING_CONTRACT_ADDRESS, MIN_STAKE_WEI } from './staking.js';
+
 // Default RPC endpoints
 export const DEFAULT_RPC_ENDPOINTS = {
   pub1: 'https://pub1.aplocoin.com',
@@ -79,6 +83,30 @@ export function createAploClient(config: {
 }) {
   const provider = new HttpProvider(config);
   return new AploClient(provider);
+}
+
+/**
+ * Create AploStaking client with HTTP provider
+ * 
+ * @example
+ * ```typescript
+ * import { createAploStaking } from '@aplocoin/aplonpm';
+ * 
+ * const staking = createAploStaking({
+ *   url: 'https://pub1.aplocoin.com',
+ * });
+ * 
+ * const stake = await staking.getStake('0x...');
+ * const canMine = await staking.canMine('0x...');
+ * ```
+ */
+export function createAploStaking(config: {
+  url: string;
+  timeout?: number;
+  headers?: Record<string, string>;
+}) {
+  const provider = new HttpProvider(config);
+  return new AploStaking(provider);
 }
 
 export default AploClient;
