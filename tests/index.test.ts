@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AploClient, VERSION } from '../src/index';
+import { AploClient, VERSION, createAploClient, HttpProvider, DEFAULT_RPC_ENDPOINTS } from '../src/index';
 
 describe('Package exports', () => {
   it('should export VERSION constant', () => {
@@ -13,21 +13,35 @@ describe('Package exports', () => {
     expect(typeof AploClient).toBe('function');
   });
 
-  it('should create AploClient instance with RPC URL', () => {
-    const rpcUrl = 'https://pub1.aplocoin.com';
-    const client = new AploClient(rpcUrl);
+  it('should export HttpProvider class', () => {
+    expect(HttpProvider).toBeDefined();
+    expect(typeof HttpProvider).toBe('function');
+  });
+
+  it('should export createAploClient factory function', () => {
+    expect(createAploClient).toBeDefined();
+    expect(typeof createAploClient).toBe('function');
+  });
+
+  it('should export DEFAULT_RPC_ENDPOINTS', () => {
+    expect(DEFAULT_RPC_ENDPOINTS).toBeDefined();
+    expect(DEFAULT_RPC_ENDPOINTS.pub1).toBe('https://pub1.aplocoin.com');
+    expect(DEFAULT_RPC_ENDPOINTS.pub2).toBe('https://pub2.aplocoin.com');
+  });
+
+  it('should create AploClient instance with createAploClient', () => {
+    const client = createAploClient({ url: 'https://pub1.aplocoin.com' });
     
     expect(client).toBeInstanceOf(AploClient);
-    expect(client.getRpcUrl()).toBe(rpcUrl);
   });
 });
 
 describe('TypeScript types', () => {
   it('should have proper type definitions', () => {
-    const client = new AploClient('https://test.com');
+    const provider = new HttpProvider({ url: 'https://test.com' });
+    const client = new AploClient(provider);
     
-    // TypeScript should enforce string type for RPC URL
-    const url: string = client.getRpcUrl();
-    expect(url).toBe('https://test.com');
+    // TypeScript should enforce proper types
+    expect(client).toBeInstanceOf(AploClient);
   });
 });
