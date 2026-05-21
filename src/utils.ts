@@ -86,11 +86,76 @@ export function formatPrivateKey(key: string): Hex {
 /**
  * Pads hex string to specified byte length
  */
-export function padHex(hex: Hex, byteLength: number): Hex {
-  const cleaned = hex.slice(2);
+export function padHex(hex: string, byteLength: number): string {
+  const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex;
   const targetLength = byteLength * 2;
   if (cleaned.length >= targetLength) {
-    return hex;
+    return '0x' + cleaned;
   }
-  return `0x${cleaned.padStart(targetLength, '0')}` as Hex;
+  return `0x${cleaned.padStart(targetLength, '0')}`;
+}
+
+/**
+ * Keccak256 hash function
+ */
+export function keccak256(data: string): string {
+  // Use native crypto if available, otherwise use a library
+  if (typeof require !== 'undefined') {
+    try {
+      const { keccak256: keccakNode } = require('ethereum-cryptography/keccak');
+      const bytes = hexToBytes(data);
+      const hash = keccakNode(bytes);
+      return '0x' + Buffer.from(hash).toString('hex');
+    } catch {
+      // Fallback to js-sha3
+      const { keccak_256 } = require('js-sha3');
+      const bytes = hexToBytes(data);
+      return '0x' + keccak_256(bytes);
+    }
+  }
+  throw new Error('keccak256 not available in this environment');
+}
+
+/**
+ * Convert hex string to bytes
+ */
+function hexToBytes(hex: string): Uint8Array {
+  const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(cleaned.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(cleaned.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Encode packed data (similar to Solidity's abi.encodePacked)
+ */
+export function encodePacked(
+  ...args: Array<{ type: string; value: string }>
+): string {
+  let result = '0x';
+  
+  for (const arg of args) {
+    const { type, value } = arg;
+    
+    if (type === 'address') {
+      // Address: 20 bytes, no padding
+      const cleaned = value.toLowerCase().replace('0x', '');
+      result += cleaned.padStart(40, '0');
+    } else if (type === 'bytes32') {
+      // Bytes32: 32 bytes
+      const cleaned = value.replace('0x', '');
+      result += cleaned.padStart(64, '0');
+    } else if (type === 'uint256') {
+      // Uint256: 32 bytes
+      const bn = BigInt(value);
+      const hex = bn.toString(16);
+      result += hex.padStart(64, '0');
+    } else {
+      throw new Error(`Unsupported type: ${type}`);
+    }
+  }
+  
+  return result;
 }

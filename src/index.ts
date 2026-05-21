@@ -6,6 +6,7 @@
 import { HttpProvider } from './provider.js';
 import { AploClient } from './client.js';
 import { AploStaking } from './staking.js';
+import { AploMining } from './mining.js';
 
 export const VERSION = '0.1.0';
 
@@ -54,6 +55,10 @@ export type { BlockTag } from './client.js';
 
 // Export staking
 export { AploStaking, STAKING_CONTRACT_ADDRESS, MIN_STAKE_WEI } from './staking.js';
+
+// Export mining
+export { AploMining, MINING_CONTRACT_ADDRESS } from './mining.js';
+export type { MiningOptions, MiningResult } from './mining.js';
 
 // Default RPC endpoints
 export const DEFAULT_RPC_ENDPOINTS = {
@@ -107,6 +112,37 @@ export function createAploStaking(config: {
 }) {
   const provider = new HttpProvider(config);
   return new AploStaking(provider);
+}
+
+/**
+ * Create AploMining client with HTTP provider
+ * 
+ * @example
+ * ```typescript
+ * import { createAploMining } from '@aplocoin/aplonpm';
+ * 
+ * const mining = createAploMining({
+ *   url: 'https://pub1.aplocoin.com',
+ * });
+ * 
+ * // Mine once
+ * const result = await mining.mineOnce(privateKey, fromAddress);
+ * 
+ * // Continuous mining
+ * const controller = new AbortController();
+ * await mining.mineLoop(privateKey, fromAddress, {
+ *   signal: controller.signal,
+ *   onSuccess: (result) => console.log('Mined!', result),
+ * });
+ * ```
+ */
+export function createAploMining(config: {
+  url: string;
+  timeout?: number;
+  headers?: Record<string, string>;
+}) {
+  const provider = new HttpProvider(config);
+  return new AploMining(provider);
 }
 
 export default AploClient;
