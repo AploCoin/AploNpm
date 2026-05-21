@@ -244,7 +244,7 @@ export async function getWalletStatus(): Promise<{
       chainId,
       hasProvider: true,
     };
-  } catch (error) {
+  } catch {
     return { connected: false, hasProvider: true };
   }
 }

@@ -93,5 +93,5 @@ export interface TransactionReceipt {
  * Provider interface for JSON-RPC communication
  */
 export interface Provider {
-  request<T = unknown>(method: string, params?: unknown[]): Promise<T>;
+  request<T = unknown>(_method: string, _params?: unknown[]): Promise<T>;
 }

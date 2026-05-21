@@ -18,8 +18,8 @@ export class AploError extends Error {
 export class ProviderError extends AploError {
   constructor(
     message: string,
-    public readonly code?: number,
-    public readonly data?: unknown
+    public readonly _code?: number,
+    public readonly _data?: unknown
   ) {
     super(message);
     this.name = 'ProviderError';
@@ -52,7 +52,7 @@ export class InvalidHexError extends AploError {
 export class TransactionError extends AploError {
   constructor(
     message: string,
-    public readonly transactionHash?: string
+    public readonly _transactionHash?: string
   ) {
     super(message);
     this.name = 'TransactionError';

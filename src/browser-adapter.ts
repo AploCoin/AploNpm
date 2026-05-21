@@ -11,9 +11,10 @@ import { ProviderError } from './errors.js';
  * @see https://eips.ethereum.org/EIPS/eip-1193
  */
 export interface EIP1193Provider {
-  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
-  on?(event: string, handler: (...args: unknown[]) => void): void;
-  removeListener?(event: string, handler: (...args: unknown[]) => void): void;
+  request(_args: { method: string; params?: unknown[] }): Promise<unknown>;
+  on?(_event: string, _handler: (..._args: unknown[]) => void): void;
+  once?(_event: string, _handler: (..._args: unknown[]) => void): void;
+  removeListener?(_event: string, _handler: (..._args: unknown[]) => void): void;
 }
 
 /**
@@ -163,7 +164,7 @@ export class BrowserWalletAdapter {
    * @param event Event name
    * @param handler Event handler
    */
-  on(event: BrowserWalletEvent, handler: (...args: unknown[]) => void): void {
+  on(event: BrowserWalletEvent, handler: (..._args: unknown[]) => void): void {
     if (this.provider.on) {
       this.provider.on(event, handler);
     }
@@ -174,7 +175,7 @@ export class BrowserWalletAdapter {
    * @param event Event name
    * @param handler Event handler
    */
-  removeListener(event: BrowserWalletEvent, handler: (...args: unknown[]) => void): void {
+  removeListener(event: BrowserWalletEvent, handler: (..._args: unknown[]) => void): void {
     if (this.provider.removeListener) {
       this.provider.removeListener(event, handler);
     }

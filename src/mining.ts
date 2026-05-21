@@ -39,13 +39,13 @@ export interface MiningSuccess {
 export interface MiningOptions {
   maxAttempts?: number;
   signal?: AbortSignal;
-  onProgress?: (progress: { attempts: number; currentNonce: bigint }) => void;
+  onProgress?: (_progress: { attempts: number; currentNonce: bigint }) => void;
   checkStake?: boolean;
 }
 
 export interface MiningLoopOptions extends MiningOptions {
-  onSuccess?: (result: MiningSuccess) => void;
-  onError?: (error: Error) => void;
+  onSuccess?: (_result: MiningSuccess) => void;
+  onError?: (_error: Error) => void;
   retryDelay?: number;
   blockDelay?: number;
 }
@@ -54,7 +54,7 @@ export interface MiningLoopOptions extends MiningOptions {
  * AploMining client for mining APLO tokens
  */
 export class AploMining {
-  constructor(private provider: Provider) {}
+  constructor(private _provider: Provider) {}
 
   /**
    * Get mining parameters for an address
@@ -65,7 +65,7 @@ export class AploMining {
     const encodedAddress = padHex(address.toLowerCase(), 64).slice(2);
     const data = selector + encodedAddress;
 
-    const result = await this.provider.request('eth_call', [
+    const result = await this._provider.request('eth_call', [
       {
         to: MINING_CONTRACT_ADDRESS,
         data,
@@ -199,7 +199,7 @@ export class AploMining {
     const data = this.encodeMineTransaction(nonce);
 
     // Estimate gas
-    const gasEstimate = await this.provider.request('eth_estimateGas', [
+    const gasEstimate = await this._provider.request('eth_estimateGas', [
       {
         from: fromAddress,
         to: MINING_CONTRACT_ADDRESS,
@@ -208,10 +208,10 @@ export class AploMining {
     ]);
 
     // Get gas price
-    const gasPrice = await this.provider.request('eth_gasPrice');
+    const gasPrice = await this._provider.request('eth_gasPrice');
 
     // Get nonce
-    const txNonce = await this.provider.request('eth_getTransactionCount', [fromAddress, 'pending']);
+    const txNonce = await this._provider.request('eth_getTransactionCount', [fromAddress, 'pending']);
 
     // Ensure nonce is hex string
     const nonceHex = typeof txNonce === 'string' 
@@ -233,7 +233,7 @@ export class AploMining {
     const signedTx = await signTransaction(tx, privateKey);
 
     // Send raw transaction
-    const txHash = await this.provider.request('eth_sendRawTransaction', [signedTx]);
+    const txHash = await this._provider.request('eth_sendRawTransaction', [signedTx]);
 
     return txHash as TransactionHash;
   }
@@ -249,7 +249,7 @@ export class AploMining {
 
     const STAKING_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000001235';
 
-    const result = await this.provider.request('eth_call', [
+    const result = await this._provider.request('eth_call', [
       {
         to: STAKING_CONTRACT_ADDRESS,
         data,
