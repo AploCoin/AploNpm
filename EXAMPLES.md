@@ -590,3 +590,295 @@ async function getStakingInfo(address: Address): Promise<{
 }
 ```
 
+## Browser Wallet Integration
+
+### Quick Start with Browser Wallet
+
+```typescript
+import { createBrowserClient, getWalletStatus } from '@aplocoin/aplonpm';
+
+// Check wallet status first
+const status = await getWalletStatus();
+if (!status.hasProvider) {
+  console.error('Please install MetaMask or another Web3 wallet');
+  return;
+}
+
+if (!status.connected) {
+  console.log('Wallet not connected, will request connection...');
+}
+
+// Connect and create client
+const { client, adapter, address } = await createBrowserClient();
+console.log('Connected:', address);
+
+// Get balance
+const balance = await client.getBalance(address);
+console.log('Balance:', balance);
+```
+
+### EIP-1193 Provider Adapter
+
+Low-level adapter for direct wallet interaction:
+
+```typescript
+import { BrowserWalletAdapter, detectInjectedProvider } from '@aplocoin/aplonpm';
+
+// Detect injected provider (MetaMask, Rainbow, etc.)
+const provider = detectInjectedProvider();
+if (!provider) {
+  throw new Error('No wallet detected');
+}
+
+// Create adapter
+const adapter = new BrowserWalletAdapter(provider);
+
+// Connect wallet
+const address = await adapter.connect();
+
+// Get accounts
+const accounts = await adapter.getAccounts();
+
+// Get chain ID
+const chainId = await adapter.getChainId();
+
+// Switch chain
+await adapter.switchChain(1); // Switch to Ethereum mainnet
+
+// Send transaction
+const hash = await adapter.sendTransaction({
+  from: address,
+  to: '0x...',
+  value: '0x0',
+  data: '0x...',
+});
+
+// Listen to events
+adapter.on('accountsChanged', (accounts) => {
+  console.log('Accounts changed:', accounts);
+});
+
+adapter.on('chainChanged', (chainId) => {
+  console.log('Chain changed:', chainId);
+});
+```
+
+### Browser Wallet with Staking
+
+```typescript
+import { createBrowserStaking, stakeAplo, unstakeAplo } from '@aplocoin/aplonpm';
+
+// Create staking client with browser wallet
+const { staking, adapter, address } = await createBrowserStaking();
+
+// Check current stake
+const currentStake = await staking.getStake(address);
+console.log('Current stake:', currentStake);
+
+// Check multiplier
+const multiplier = await staking.getMultiplier(address);
+console.log('Multiplier:', multiplier); // e.g., 15 = 1.5x
+
+// Check if can mine
+const canMine = await staking.canMine(address);
+console.log('Can mine:', canMine);
+
+// Stake tokens (high-level helper)
+const stakeHash = await stakeAplo('1000'); // Stake 1000 APLO
+console.log('Staking transaction:', stakeHash);
+
+// Wait for confirmation
+const receipt = await client.getTransactionReceipt(stakeHash);
+console.log('Staking confirmed:', receipt.status === 1n);
+
+// Unstake tokens (high-level helper)
+const unstakeHash = await unstakeAplo();
+console.log('Unstaking transaction:', unstakeHash);
+```
+
+### Browser Wallet with Mining
+
+```typescript
+import { createBrowserMining } from '@aplocoin/aplonpm';
+
+// Create mining client with browser wallet
+const { mining, adapter, address } = await createBrowserMining();
+
+// Check if can mine (requires 1000+ APLO staked)
+const canMine = await mining.canMine(address);
+if (!canMine) {
+  console.log('Need to stake at least 1000 APLO first');
+  return;
+}
+
+// Get miner parameters
+const params = await mining.getMinerParams(address);
+console.log('Difficulty:', params.difficulty);
+console.log('Reward:', params.reward);
+
+// Note: Mining with browser wallet requires private key
+// For security, mining should be done server-side or with explicit user consent
+// Browser mining is primarily for testing/development
+
+// Example: Mine once (requires private key - use with caution!)
+// const privateKey = '0x...'; // User must provide this explicitly
+// const result = await mining.mineOnce(privateKey, address);
+// console.log('Mining result:', result);
+```
+
+### Send APLO Tokens
+
+```typescript
+import { sendAplo } from '@aplocoin/aplonpm';
+
+// High-level helper for sending APLO
+const hash = await sendAplo({
+  to: '0x0987654321098765432109876543210987654321',
+  amount: '100', // 100 APLO
+});
+
+console.log('Transaction sent:', hash);
+
+// Or use adapter directly for more control
+import { createBrowserClient } from '@aplocoin/aplonpm';
+
+const { adapter, address } = await createBrowserClient();
+
+const hash = await adapter.sendTransaction({
+  from: address,
+  to: '0x0987654321098765432109876543210987654321',
+  value: '0x56bc75e2d63100000', // 100 APLO in wei (hex)
+});
+```
+
+### React/Next.js Integration
+
+SSR-safe imports for Next.js:
+
+```typescript
+'use client'; // Next.js 13+ client component
+
+import { useEffect, useState } from 'react';
+import { 
+  getWalletStatus, 
+  createBrowserClient,
+  type Address 
+} from '@aplocoin/aplonpm';
+
+export function WalletConnect() {
+  const [address, setAddress] = useState<Address | null>(null);
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  useEffect(() => {
+    // Check wallet status on mount
+    getWalletStatus().then(status => {
+      if (status.connected && status.address) {
+        setAddress(status.address);
+      }
+    });
+  }, []);
+
+  const connect = async () => {
+    try {
+      const { client, address } = await createBrowserClient();
+      setAddress(address);
+      
+      const balance = await client.getBalance(address);
+      setBalance(balance);
+    } catch (error) {
+      console.error('Failed to connect:', error);
+    }
+  };
+
+  return (
+    <div>
+      {address ? (
+        <div>
+          <p>Connected: {address}</p>
+          {balance && <p>Balance: {balance.toString()} wei</p>}
+        </div>
+      ) : (
+        <button onClick={connect}>Connect Wallet</button>
+      )}
+    </div>
+  );
+}
+```
+
+### Wagmi/RainbowKit Compatibility
+
+The `BrowserWalletAdapter` is compatible with Wagmi connectors:
+
+```typescript
+import { BrowserWalletAdapter, detectInjectedProvider } from '@aplocoin/aplonpm';
+import { createConfig, http } from 'wagmi';
+import { injected } from 'wagmi/connectors';
+
+// Use with Wagmi
+const config = createConfig({
+  connectors: [injected()],
+  // ... other config
+});
+
+// Or use AploNpm adapter directly
+const provider = detectInjectedProvider();
+if (provider) {
+  const adapter = new BrowserWalletAdapter(provider);
+  // adapter.request() is compatible with Wagmi's provider interface
+}
+```
+
+### Error Handling
+
+```typescript
+import { 
+  createBrowserClient, 
+  ProviderError 
+} from '@aplocoin/aplonpm';
+
+try {
+  const { client, address } = await createBrowserClient();
+  // ... use client
+} catch (error) {
+  if (error instanceof ProviderError) {
+    if (error.message.includes('No wallet provider detected')) {
+      console.error('Please install MetaMask');
+    } else if (error.message.includes('User rejected')) {
+      console.error('User rejected connection');
+    } else {
+      console.error('Provider error:', error.message);
+    }
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+### TypeScript Types
+
+```typescript
+import type {
+  EIP1193Provider,
+  EIP1193TransactionRequest,
+  BrowserWalletEvent,
+  Address,
+  Hex,
+} from '@aplocoin/aplonpm';
+
+// Custom provider wrapper
+class CustomProvider implements EIP1193Provider {
+  async request(args: { method: string; params?: unknown[] }): Promise<unknown> {
+    // Custom implementation
+  }
+}
+
+// Transaction builder
+function buildTransaction(
+  from: Address,
+  to: Address,
+  value: Hex
+): EIP1193TransactionRequest {
+  return { from, to, value };
+}
+```
+

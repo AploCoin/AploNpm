@@ -60,6 +60,29 @@ export { AploStaking, STAKING_CONTRACT_ADDRESS, MIN_STAKE_WEI } from './staking.
 export { AploMining, MINING_CONTRACT_ADDRESS } from './mining.js';
 export type { MiningOptions, MiningResult } from './mining.js';
 
+// Export browser wallet adapters
+export {
+  BrowserWalletAdapter,
+  detectInjectedProvider,
+} from './browser-adapter.js';
+export type {
+  EIP1193Provider,
+  EIP1193TransactionRequest,
+  BrowserWalletEvent,
+} from './browser-adapter.js';
+
+// Export browser helpers
+export {
+  BrowserProvider,
+  createBrowserClient,
+  createBrowserStaking,
+  createBrowserMining,
+  sendAplo,
+  stakeAplo,
+  unstakeAplo,
+  getWalletStatus,
+} from './browser-helpers.js';
+
 // Default RPC endpoints
 export const DEFAULT_RPC_ENDPOINTS = {
   pub1: 'https://pub1.aplocoin.com',
