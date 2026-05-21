@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AploNpm Browser Wallet Example</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    .section {
+      margin: 30px 0;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      background: #f0f0f0;
+    }
+    .error {
+      background: #fee;
+      color: #c00;
+    }
+    .success {
+      background: #efe;
+      color: #060;
+    }
+    input {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>AploNpm Browser Wallet Example</h1>
+  
+  <div class="info">
+    <strong>Requirements:</strong> MetaMask or compatible Web3 wallet installed
+  </div>
+
+  <!-- Connection Section -->
+  <div class="section">
+    <h2>1. Connect Wallet</h2>
+    <button id="connectBtn">Connect Wallet</button>
+    <div id="connectionStatus" class="status" style="display: none;"></div>
+  </div>
+
+  <!-- Balance Section -->
+  <div class="section">
+    <h2>2. Check Balance</h2>
+    <button id="balanceBtn" disabled>Get Balance</button>
+    <div id="balanceStatus" class="status" style="display: none;"></div>
+  </div>
+
+  <!-- Send Section -->
+  <div class="section">
+    <h2>3. Send APLO</h2>
+    <div>
+      <label>To Address:</label><br>
+      <input type="text" id="sendTo" placeholder="0x..." value="0x0987654321098765432109876543210987654321">
+    </div>
+    <div style="margin-top: 10px;">
+      <label>Amount (APLO):</label><br>
+      <input type="text" id="sendAmount" placeholder="1.0" value="0.1">
+    </div>
+    <button id="sendBtn" disabled style="margin-top: 10px;">Send Transaction</button>
+    <div id="sendStatus" class="status" style="display: none;"></div>
+  </div>
+
+  <!-- Staking Section -->
+  <div class="section">
+    <h2>4. Staking</h2>
+    <button id="checkStakeBtn" disabled>Check Stake</button>
+    <button id="stakeBtn" disabled>Stake 1000 APLO</button>
+    <button id="unstakeBtn" disabled>Unstake All</button>
+    <div id="stakingStatus" class="status" style="display: none;"></div>
+  </div>
+
+  <!-- Mining Section -->
+  <div class="section">
+    <h2>5. Mining</h2>
+    <button id="checkMiningBtn" disabled>Check Mining Eligibility</button>
+    <button id="mineBtn" disabled>Mine Once</button>
+    <div id="miningStatus" class="status" style="display: none;"></div>
+  </div>
+
+  <script type="module">
+    import {
+      detectInjectedProvider,
+      createBrowserClient,
+      createBrowserStaking,
+      createBrowserMining,
+      sendAplo,
+      stakeAplo,
+      unstakeAplo,
+      getWalletStatus,
+      fromWei,
+      toWei,
+    } from '@aplocoin/aplonpm';
+
+    let provider = null;
+    let client = null;
+    let staking = null;
+    let mining = null;
+    let currentAccount = null;
+
+    // Helper to show status
+    function showStatus(elementId, message, type = 'info') {
+      const el = document.getElementById(elementId);
+      el.textContent = message;
+      el.className = `status ${type}`;
+      el.style.display = 'block';
+    }
+
+    // Connect Wallet
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+      try {
+        showStatus('connectionStatus', 'Detecting wallet...', 'info');
+        
+        provider = detectInjectedProvider();
+        if (!provider) {
+          showStatus('connectionStatus', 'No Web3 wallet detected. Please install MetaMask.', 'error');
+          return;
+        }
+
+        // Request account access
+        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        currentAccount = accounts[0];
+
+        // Create clients
+        client = createBrowserClient(provider);
+        staking = createBrowserStaking(provider);
+        mining = createBrowserMining(provider);
+
+        showStatus('connectionStatus', `Connected: ${currentAccount}`, 'success');
+
+        // Enable buttons
+        document.getElementById('balanceBtn').disabled = false;
+        document.getElementById('sendBtn').disabled = false;
+        document.getElementById('checkStakeBtn').disabled = false;
+        document.getElementById('stakeBtn').disabled = false;
+        document.getElementById('unstakeBtn').disabled = false;
+        document.getElementById('checkMiningBtn').disabled = false;
+        document.getElementById('mineBtn').disabled = false;
+
+        // Listen for account changes
+        provider.on('accountsChanged', (accounts) => {
+          if (accounts.length === 0) {
+            showStatus('connectionStatus', 'Wallet disconnected', 'error');
+            location.reload();
+          } else {
+            currentAccount = accounts[0];
+            showStatus('connectionStatus', `Account changed: ${currentAccount}`, 'success');
+          }
+        });
+
+      } catch (error) {
+        showStatus('connectionStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Get Balance
+    document.getElementById('balanceBtn').addEventListener('click', async () => {
+      try {
+        showStatus('balanceStatus', 'Fetching balance...', 'info');
+        
+        const balanceWei = await client.getBalance(currentAccount);
+        const balanceAplo = fromWei(balanceWei);
+        
+        showStatus('balanceStatus', `Balance: ${balanceAplo} APLO`, 'success');
+      } catch (error) {
+        showStatus('balanceStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Send Transaction
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      try {
+        const to = document.getElementById('sendTo').value;
+        const amount = document.getElementById('sendAmount').value;
+
+        if (!to || !amount) {
+          showStatus('sendStatus', 'Please fill in all fields', 'error');
+          return;
+        }
+
+        showStatus('sendStatus', 'Sending transaction...', 'info');
+        
+        const txHash = await sendAplo(provider, to, amount);
+        
+        showStatus('sendStatus', `Transaction sent! Hash: ${txHash}`, 'success');
+      } catch (error) {
+        showStatus('sendStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Check Stake
+    document.getElementById('checkStakeBtn').addEventListener('click', async () => {
+      try {
+        showStatus('stakingStatus', 'Checking stake...', 'info');
+        
+        const stake = await staking.getStake(currentAccount);
+        const stakeAplo = fromWei(stake);
+        const multiplier = await staking.getMultiplier(currentAccount);
+        const canMine = await staking.canMine(currentAccount);
+        
+        showStatus('stakingStatus', 
+          `Stake: ${stakeAplo} APLO | Multiplier: ${multiplier} | Can Mine: ${canMine}`, 
+          'success');
+      } catch (error) {
+        showStatus('stakingStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Stake
+    document.getElementById('stakeBtn').addEventListener('click', async () => {
+      try {
+        showStatus('stakingStatus', 'Staking 1000 APLO...', 'info');
+        
+        const txHash = await stakeAplo(provider, '1000');
+        
+        showStatus('stakingStatus', `Stake transaction sent! Hash: ${txHash}`, 'success');
+      } catch (error) {
+        showStatus('stakingStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Unstake
+    document.getElementById('unstakeBtn').addEventListener('click', async () => {
+      try {
+        showStatus('stakingStatus', 'Unstaking...', 'info');
+        
+        const txHash = await unstakeAplo(provider);
+        
+        showStatus('stakingStatus', `Unstake transaction sent! Hash: ${txHash}`, 'success');
+      } catch (error) {
+        showStatus('stakingStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Check Mining Eligibility
+    document.getElementById('checkMiningBtn').addEventListener('click', async () => {
+      try {
+        showStatus('miningStatus', 'Checking mining eligibility...', 'info');
+        
+        const canMine = await staking.canMine(currentAccount);
+        
+        if (canMine) {
+          showStatus('miningStatus', 'You can mine! Click "Mine Once" to start.', 'success');
+        } else {
+          showStatus('miningStatus', 'Cannot mine. Please stake at least 1000 APLO first.', 'error');
+        }
+      } catch (error) {
+        showStatus('miningStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Mine Once
+    document.getElementById('mineBtn').addEventListener('click', async () => {
+      try {
+        showStatus('miningStatus', 'Mining... This may take a while.', 'info');
+        
+        // Note: Browser mining requires the private key to be accessible
+        // In a real app, you'd use the wallet's signing capabilities
+        showStatus('miningStatus', 
+          'Browser mining requires wallet signing. Use the Node.js examples for full mining functionality.', 
+          'error');
+      } catch (error) {
+        showStatus('miningStatus', `Error: ${error.message}`, 'error');
+      }
+    });
+  </script>
+</body>
+</html>
