@@ -342,3 +342,251 @@ pnpm build       # Build package
 ## Next Steps
 
 For contract interaction (staking, mining), see the upcoming contract modules that will build on top of this core client.
+
+## Staking Operations
+
+### Create Staking Client
+
+```typescript
+import { createAploStaking, DEFAULT_RPC_ENDPOINTS } from '@aplocoin/aplonpm';
+
+// Using factory function
+const staking = createAploStaking({
+  url: DEFAULT_RPC_ENDPOINTS.pub1,
+  timeout: 30000,
+});
+
+// Or with manual provider setup
+import { HttpProvider, AploStaking } from '@aplocoin/aplonpm';
+
+const provider = new HttpProvider({ url: DEFAULT_RPC_ENDPOINTS.pub1 });
+const staking = new AploStaking(provider);
+```
+
+### Check Stake Status
+
+```typescript
+import { fromWei, MIN_STAKE_WEI } from '@aplocoin/aplonpm';
+
+const address = '0x1234567890123456789012345678901234567890';
+
+// Get staked amount in wei
+const stakedWei = await staking.getStake(address);
+console.log('Staked (wei):', stakedWei); // 1500000000000000000000n
+
+// Convert to APLO
+const stakedAplo = fromWei(stakedWei);
+console.log('Staked (APLO):', stakedAplo); // "1500"
+
+// Check minimum stake requirement
+console.log('Min stake:', fromWei(MIN_STAKE_WEI)); // "1000"
+```
+
+### Get Staking Multiplier
+
+```typescript
+// Get multiplier (scaled by 10, e.g., 15 = 1.5x)
+const multiplierRaw = await staking.getMultiplier(address);
+console.log('Multiplier raw:', multiplierRaw); // 15n
+
+// Convert to actual multiplier
+const multiplier = Number(multiplierRaw) / 10;
+console.log('Multiplier:', multiplier); // 1.5
+
+// Tier examples:
+// 1000-4999 APLO: 1.0x (multiplier = 10)
+// 5000-9999 APLO: 1.2x (multiplier = 12)
+// 10000+ APLO: 1.5x (multiplier = 15)
+// Max tier: 1.7x (multiplier = 17)
+```
+
+### Check Mining Eligibility
+
+```typescript
+import { STAKING_CONTRACT_ADDRESS, MIN_STAKE_WEI } from '@aplocoin/aplonpm';
+
+// Check if address can mine (has >= 1000 APLO staked)
+const canMine = await staking.canMine(address);
+
+if (canMine) {
+  console.log('✓ Address can mine');
+  const multiplier = await staking.getMultiplier(address);
+  console.log(`Mining multiplier: ${Number(multiplier) / 10}x`);
+} else {
+  console.log('✗ Insufficient stake for mining');
+  console.log(`Minimum required: ${fromWei(MIN_STAKE_WEI)} APLO`);
+}
+
+console.log('Staking contract:', STAKING_CONTRACT_ADDRESS);
+// "0x0000000000000000000000000000000000001235"
+```
+
+### Encode Stake Transaction
+
+```typescript
+import { toWei } from '@aplocoin/aplonpm';
+
+// Encode stake transaction data
+const amountToStake = toWei('1500'); // 1500 APLO
+const stakeData = staking.encodeStake(amountToStake);
+
+console.log('Transaction data:', stakeData);
+// "0xa694fc3a0000000000000000000000000000000000000000000000514594d4c000000000"
+
+// Use with AploClient to send transaction
+import { createAploClient, STAKING_CONTRACT_ADDRESS } from '@aplocoin/aplonpm';
+
+const client = createAploClient({ url: DEFAULT_RPC_ENDPOINTS.pub1 });
+
+// Estimate gas for stake transaction
+const gasEstimate = await client.estimateGas({
+  from: address,
+  to: STAKING_CONTRACT_ADDRESS,
+  data: stakeData,
+});
+
+console.log('Estimated gas:', gasEstimate);
+```
+
+### Encode Unstake Transaction
+
+```typescript
+// Encode unstake transaction data
+const unstakeData = staking.encodeUnstake();
+
+console.log('Unstake data:', unstakeData);
+// "0x2e17de78"
+
+// Estimate gas for unstake
+const gasEstimate = await client.estimateGas({
+  from: address,
+  to: STAKING_CONTRACT_ADDRESS,
+  data: unstakeData,
+});
+```
+
+### Complete Staking Flow
+
+```typescript
+import {
+  createAploClient,
+  createAploStaking,
+  DEFAULT_RPC_ENDPOINTS,
+  STAKING_CONTRACT_ADDRESS,
+  MIN_STAKE_WEI,
+  toWei,
+  fromWei,
+} from '@aplocoin/aplonpm';
+
+const client = createAploClient({ url: DEFAULT_RPC_ENDPOINTS.pub1 });
+const staking = createAploStaking({ url: DEFAULT_RPC_ENDPOINTS.pub1 });
+
+async function checkStakingStatus(address: string) {
+  // Get current stake
+  const stakedWei = await staking.getStake(address);
+  const stakedAplo = fromWei(stakedWei);
+  
+  // Get multiplier
+  const multiplierRaw = await staking.getMultiplier(address);
+  const multiplier = Number(multiplierRaw) / 10;
+  
+  // Check mining eligibility
+  const canMine = await staking.canMine(address);
+  
+  return {
+    staked: stakedAplo,
+    stakedWei,
+    multiplier,
+    canMine,
+    minStake: fromWei(MIN_STAKE_WEI),
+  };
+}
+
+async function prepareStakeTransaction(
+  fromAddress: string,
+  amountAplo: string
+) {
+  const amountWei = toWei(amountAplo);
+  
+  // Check if amount meets minimum
+  if (amountWei < MIN_STAKE_WEI) {
+    throw new Error(`Minimum stake is ${fromWei(MIN_STAKE_WEI)} APLO`);
+  }
+  
+  // Encode transaction data
+  const data = staking.encodeStake(amountWei);
+  
+  // Estimate gas
+  const gas = await client.estimateGas({
+    from: fromAddress,
+    to: STAKING_CONTRACT_ADDRESS,
+    data,
+  });
+  
+  // Get gas price
+  const gasPrice = await client.getGasPrice();
+  
+  // Get nonce
+  const nonce = await client.getTransactionCount(fromAddress, 'pending');
+  
+  return {
+    from: fromAddress,
+    to: STAKING_CONTRACT_ADDRESS,
+    data,
+    gas,
+    gasPrice,
+    nonce,
+  };
+}
+
+// Usage
+const address = '0x1234567890123456789012345678901234567890';
+
+// Check status
+const status = await checkStakingStatus(address);
+console.log('Staking status:', status);
+
+// Prepare stake transaction
+const stakeTx = await prepareStakeTransaction(address, '1500');
+console.log('Ready to stake:', stakeTx);
+// Note: You need to sign this transaction with a wallet/signer
+```
+
+### Error Handling
+
+```typescript
+import { InvalidAddressError, ProviderError } from '@aplocoin/aplonpm';
+
+try {
+  const stake = await staking.getStake('invalid-address');
+} catch (error) {
+  if (error instanceof InvalidAddressError) {
+    console.error('Invalid address format');
+  } else if (error instanceof ProviderError) {
+    console.error('RPC error:', error.message);
+  }
+}
+```
+
+### TypeScript Types
+
+```typescript
+import type { Address, Hex } from '@aplocoin/aplonpm';
+
+// Type-safe staking operations
+async function getStakingInfo(address: Address): Promise<{
+  stake: bigint;
+  multiplier: bigint;
+  canMine: boolean;
+}> {
+  const [stake, multiplier] = await Promise.all([
+    staking.getStake(address),
+    staking.getMultiplier(address),
+  ]);
+  
+  const canMine = await staking.canMine(address);
+  
+  return { stake, multiplier, canMine };
+}
+```
+
